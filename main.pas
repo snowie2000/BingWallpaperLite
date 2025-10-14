@@ -74,6 +74,7 @@ procedure TfrmMain.Refresheveryday1Click(Sender: TObject);
 begin
   Refresheveryday1.Checked := not Refresheveryday1.Checked;
   tmr1.Enabled := Refresheveryday1.Checked;
+  FConfig.WriteBool('general', 'refresh', Refresheveryday1.Checked);
 end;
 
 procedure TfrmMain.setWallpaper(filename: string);
