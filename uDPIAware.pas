@@ -3,10 +3,7 @@ unit uDPIAware;
 interface
 
 uses
-  Windows, Registry;
-
-var
-  g_DPIAware: Boolean = True;
+  Windows;
 
 implementation
 
@@ -32,38 +29,26 @@ procedure InitDPIAware();
 var
   hUser32: HMODULE;
 begin
-  with TRegistry.Create do
-  try
-    RootKey := HKEY_CURRENT_USER;
-    if OpenKeyReadOnly('\SOFTWARE\Wocai') and (ValueExists('HiDPI')) then
-      g_DPIAware := ReadBool('HiDPI');
-
-    if g_DPIAware then
-    begin
       // locate procs
-      hUser32 := GetModuleHandle('user32.dll');
-      pSetProcessDpiAwarenessContext := GetProcAddress(hUser32, 'SetProcessDpiAwarenessContext');
-      pSetProcessDpiAwareness := GetProcAddress(hUser32, 'SetProcessDpiAwareness');
-      pSetProcessDPIAware := GetProcAddress(hUser32, 'SetProcessDPIAware');
+  hUser32 := GetModuleHandle('user32.dll');
+  pSetProcessDpiAwarenessContext := GetProcAddress(hUser32, 'SetProcessDpiAwarenessContext');
+  pSetProcessDpiAwareness := GetProcAddress(hUser32, 'SetProcessDpiAwareness');
+  pSetProcessDPIAware := GetProcAddress(hUser32, 'SetProcessDPIAware');
 
-      if @pSetProcessDpiAwarenessContext <> nil then
-      begin
-        pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-        exit;
-      end;
-      if @pSetProcessDpiAwareness <> nil then
-      begin
-        pSetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-        exit;
-      end;
-      if @pSetProcessDPIAware <> nil then
-      begin
-        pSetProcessDPIAware();
-        exit;
-      end;
-    end;
-  finally
-    Free;
+  if @pSetProcessDpiAwarenessContext <> nil then
+  begin
+    pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+    exit;
+  end;
+  if @pSetProcessDpiAwareness <> nil then
+  begin
+    pSetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    exit;
+  end;
+  if @pSetProcessDPIAware <> nil then
+  begin
+    pSetProcessDPIAware();
+    exit;
   end;
 end;
 
