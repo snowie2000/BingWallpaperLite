@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, CoolTrayIcon, Menus, ExtCtrls,
-  IniFiles, uBWHandler, IdBaseComponent, IdAntiFreezeBase, IdAntiFreeze, ActiveX, ShlObj, ShObjIdl;
+  IniFiles, uBWHandler, IdBaseComponent, IdAntiFreezeBase, IdAntiFreeze, ActiveX, ShlObj, ShObjIdl, ShellAPI;
 
 type
   TfrmMain = class(TForm)
@@ -17,6 +17,9 @@ type
     tmr1: TTimer;
     idntfrz1: TIdAntiFreeze;
     UpdateNow1: TMenuItem;
+    N2: TMenuItem;
+    Openwallpaperfolder1: TMenuItem;
+    Region1: TMenuItem;
     procedure Quit1Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -24,12 +27,16 @@ type
     procedure UpdateNow1Click(Sender: TObject);
     procedure Refresheveryday1Click(Sender: TObject);
     procedure StartwithWindows1Click(Sender: TObject);
+    procedure Openwallpaperfolder1Click(Sender: TObject);
   private
     { Private declarations }
     FConfig: TIniFile;
     FLastUpdate: TDateTime;
     FBWHandler: TBingWallpaperHandler;
     FWallPaperFolder: string;
+    FRegionMap: TStringList;
+    procedure onRegionMenuClick(Sender: TObject);
+    procedure regionMenuSetup();
     procedure uiSetup();
     procedure updateWallpaper(force: Boolean = false);
     procedure setWallpaper(filename: string);
@@ -48,8 +55,25 @@ uses
 
 {$R *.dfm}
 
+function OpenDirectoryInExplorer(const ADirectory: string): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if not DirectoryExists(ADirectory) then
+  begin
+    // The directory doesn't exist, so we can't open it.
+    Exit;
+  end;
+
+  ResultCode := ShellExecute(0, 'open', PChar(ADirectory), nil, nil, SW_SHOWNORMAL);
+
+  Result := (ResultCode > 32);
+end;
+
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
+  FRegionMap := TStringList.Create;
   FConfig := TIniFile.Create(ExtractFilePath(Application.ExeName) + 'config.ini');
   FBWHandler := TBingWallpaperHandler.Create;
   uiSetup();
@@ -58,11 +82,42 @@ end;
 procedure TfrmMain.FormDestroy(Sender: TObject);
 begin
   FConfig.Free;
+  FRegionMap.Free;
 end;
 
 function TfrmMain.is4kMonitor: Boolean;
 begin
   Result := (Monitor.Height > 1080) or (Monitor.Width > 1920);
+end;
+
+procedure TfrmMain.onRegionMenuClick(Sender: TObject);
+var
+  code: string;
+  menu: TMenuItem;
+begin
+  if Sender is TMenuItem then
+  begin
+    menu := Sender as TMenuItem;
+    if menu.Checked then
+      Exit;
+    code := FRegionMap[menu.Tag];
+    with Region1.GetEnumerator do
+    try
+      while MoveNext do
+        Current.Checked := False;   // uncheck all regions
+    finally
+      Free;
+    end;
+    menu.Checked := True;    // check me
+    FBWHandler.Region := code;
+    FConfig.WriteString('general', 'region', code);
+    updateWallpaper(True);
+  end;
+end;
+
+procedure TfrmMain.Openwallpaperfolder1Click(Sender: TObject);
+begin
+  OpenDirectoryInExplorer(FWallPaperFolder);
 end;
 
 procedure TfrmMain.Quit1Click(Sender: TObject);
@@ -75,6 +130,26 @@ begin
   Refresheveryday1.Checked := not Refresheveryday1.Checked;
   tmr1.Enabled := Refresheveryday1.Checked;
   FConfig.WriteBool('general', 'refresh', Refresheveryday1.Checked);
+end;
+
+procedure TfrmMain.regionMenuSetup;
+var
+  menu: TMenuItem;
+  i: Integer;
+const
+  country: array[0..9] of string = ('United States', 'China', 'Japan', 'Germany', 'United Kingdom', 'France',
+    'Australia', 'Canada', 'Brazil', 'India');
+  countryCode: array[0..9] of string = ('en-US', 'zh-CN', 'ja-JP', 'de-DE', 'en-GB', 'fr-FR', 'en-AU', 'en-CA', 'pt-BR', 'en-IN');
+begin
+  for i := low(country) to high(country) do
+  begin
+    menu := TMenuItem.Create(self);
+    menu.Caption := country[i];
+    menu.Tag := i;
+    menu.OnClick := onRegionMenuClick;
+    FRegionMap.Add(countryCode[i]);
+    Region1.Add(menu);
+  end;
 end;
 
 procedure TfrmMain.setWallpaper(filename: string);
@@ -140,12 +215,20 @@ end;
 
 procedure TfrmMain.uiSetup;
 begin
+  regionMenuSetup();
   with FConfig do
   begin
     tmr1.Enabled := ReadBool('general', 'refresh', True);
     FBWHandler.Region := ReadString('general', 'region', 'en-US');
     Refresheveryday1.Checked := tmr1.Enabled;
     StartwithWindows1.Checked := IsAutoRunSet('BingWallpaperLite');
+    with Region1.GetEnumerator do
+    try
+      while MoveNext do
+        Current.Checked := FRegionMap[Current.Tag] = FBWHandler.Region;   // check current region
+    finally
+      Free;
+    end;
   end;
   FWallPaperFolder := IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName) + 'wallpapers');
   ForceDirectories(FWallPaperFolder);

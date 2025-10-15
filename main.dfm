@@ -586,12 +586,22 @@ object frmMain: TfrmMain
       Checked = True
       OnClick = StartwithWindows1Click
     end
-    object N1: TMenuItem
+    object N2: TMenuItem
       Caption = '-'
     end
     object UpdateNow1: TMenuItem
       Caption = 'Update Now'
       OnClick = UpdateNow1Click
+    end
+    object Openwallpaperfolder1: TMenuItem
+      Caption = 'Open wallpaper folder'
+      OnClick = Openwallpaperfolder1Click
+    end
+    object Region1: TMenuItem
+      Caption = 'Region'
+    end
+    object N1: TMenuItem
+      Caption = '-'
     end
     object Quit1: TMenuItem
       Caption = 'Quit'
