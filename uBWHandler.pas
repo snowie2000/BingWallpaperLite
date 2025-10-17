@@ -11,7 +11,7 @@ type
     FRequester: TIdHttp;
     FRegion: string;
   public
-    function GetWallpaperUrl(idx: Integer; UHD: Boolean): TStringList;
+    function GetWallpaperUrl(idx: Integer; UHD: Boolean; var nextUpdate: TDateTime): TStringList;
     function GetImage(url: string; strm: TStream): Boolean;
     constructor Create;
     destructor Destroy; override;
@@ -22,6 +22,41 @@ implementation
 
 uses
   Execute.IdSSLSChannel, superobject;
+
+function parseDatetime(const S: string): TDateTime;
+var
+  LYear, LMonth, LDay, LHour, LMinute, LSecond, LMilliSecond: Word;
+begin
+  // Ensure the string is the correct length before parsing
+  if Length(S) <> 12 then
+  begin
+    Result := 0;
+  end;
+
+  try
+    // Extract each part of the date and time
+    LYear := StrToInt(Copy(S, 1, 4));
+    LMonth := StrToInt(Copy(S, 5, 2));
+    LDay := StrToInt(Copy(S, 7, 2));
+    LHour := StrToInt(Copy(S, 9, 2));
+    LMinute := StrToInt(Copy(S, 11, 2));
+    LSecond := 0; // The string format has no seconds
+    LMilliSecond := 0;
+
+    // Use EncodeDate and EncodeTime to build the TDateTime value
+    // This also validates that the numbers form a valid date (e.g., month is 1-12)
+    Result := EncodeDate(LYear, LMonth, LDay) + EncodeTime(LHour, LMinute, LSecond, LMilliSecond);
+  except
+    // If StrToInt fails or EncodeDate/EncodeTime raise an error (e.g., for an invalid date like month 13)
+    // an exception is raised to signal the conversion failed.
+    on E: Exception do
+    begin
+      // Re-raise the exception with more context
+      Result := 0;
+    end;
+  end;
+end;
+
 
 { TBingWallpaperHandler }
 
@@ -61,12 +96,13 @@ begin
   end;
 end;
 
-function TBingWallpaperHandler.GetWallpaperUrl(idx: Integer; UHD: Boolean): TStringList;
+function TBingWallpaperHandler.GetWallpaperUrl(idx: Integer; UHD: Boolean; var nextUpdate: TDateTime): TStringList;
 var
   url: string;
   resp: string;
   json: ISuperObject;
   images: TSuperArray;
+  startdate, fullstartdate, enddate, fullenddate: string;
 begin
   Result := TStringList.Create;
   try
@@ -81,6 +117,14 @@ begin
         if UHD then
           Result.Add(Format('https://www.bing.com%s_UHD.jpg', [images.O[0].S['urlbase']]));     //4k version
         Result.Add(Format('https://www.bing.com%s_1920x1080.jpg', [images.O[0].S['urlbase']]));   // 1080p version
+          // analyse the end date from fullstartdate
+        startdate := images.O[0].S['startdate'];
+        fullstartdate := images.O[0].S['fullstartdate'];
+        enddate := images.O[0].S['enddate'];
+        fullenddate := enddate + Copy(fullstartdate, length(startdate)+1, length(fullstartdate) - length(startdate));
+        nextUpdate := parseDatetime(fullenddate);
+        if nextUpdate = 0 then
+          nextUpdate := Now() + 1;
       end;
     end;
   except

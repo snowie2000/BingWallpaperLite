@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, CoolTrayIcon, Menus, ExtCtrls,
-  IniFiles, uBWHandler, IdBaseComponent, IdAntiFreezeBase, IdAntiFreeze, ActiveX, ShlObj, ShObjIdl, ShellAPI;
+  IniFiles, uBWHandler, IdBaseComponent, IdAntiFreezeBase, IdAntiFreeze, ActiveX, ShlObj, ShObjIdl, ShellAPI, DateUtils;
 
 type
   TfrmMain = class(TForm)
@@ -31,7 +31,7 @@ type
   private
     { Private declarations }
     FConfig: TIniFile;
-    FLastUpdate: TDateTime;
+    FNextUpdate: TDateTime;
     FBWHandler: TBingWallpaperHandler;
     FWallPaperFolder: string;
     FRegionMap: TStringList;
@@ -41,6 +41,8 @@ type
     procedure updateWallpaper(force: Boolean = false);
     procedure setWallpaper(filename: string);
     function is4kMonitor(): Boolean;
+    procedure SetNextUpdate(const Value: TDateTime);
+    property NextUpdate: TDateTime read FNextUpdate write SetNextUpdate;
   public
     { Public declarations }
   end;
@@ -54,6 +56,14 @@ uses
   Autorunner;
 
 {$R *.dfm}
+
+function NowUTC: TDateTime;
+var
+  system_datetime: TSystemTime;
+begin
+  GetSystemTime(system_datetime);
+  Result := SystemTimeToDateTime(system_datetime);
+end;
 
 function OpenDirectoryInExplorer(const ADirectory: string): Boolean;
 var
@@ -152,6 +162,12 @@ begin
   end;
 end;
 
+procedure TfrmMain.SetNextUpdate(const Value: TDateTime);
+begin
+  FNextUpdate := Value;
+  FConfig.WriteInteger('general', 'nextupdate', DateTimeToUnix(Value) div 10);
+end;
+
 procedure TfrmMain.setWallpaper(filename: string);
 var
   desktopWallpaper: IDesktopWallpaper;
@@ -209,7 +225,7 @@ end;
 
 procedure TfrmMain.tmr1Timer(Sender: TObject);
 begin
-  if Now() - FLastUpdate > 1 then
+  if NowUTC() - FNextUpdate > 0 then
     updateWallpaper();
 end;
 
@@ -222,6 +238,7 @@ begin
     FBWHandler.Region := ReadString('general', 'region', 'en-US');
     Refresheveryday1.Checked := tmr1.Enabled;
     StartwithWindows1.Checked := IsAutoRunSet('BingWallpaperLite');
+    FNextUpdate := UnixToDateTime(Int64(ReadInteger('general', 'nextupdate', 0)) * 10);
     with Region1.GetEnumerator do
     try
       while MoveNext do
@@ -234,7 +251,7 @@ begin
   ForceDirectories(FWallPaperFolder);
 
   if tmr1.Enabled then
-    updateWallpaper();  // update wallpaper on launch
+    tmr1.OnTimer(nil);  // update wallpaper on launch
 end;
 
 procedure TfrmMain.UpdateNow1Click(Sender: TObject);
@@ -247,12 +264,13 @@ var
   urls: TStringList;
   s, filename: string;
   mem: TMemoryStream;
+  next: TDateTime;
 begin
   filename := FWallPaperFolder + FormatDateTime('YYYY-MM-DD', Now()) + '.jpg';
   if FileExists(filename) and not force then
     Exit; // do not update if the wallpaper is already uptodate
 
-  urls := FBWHandler.GetWallpaperUrl(0, is4kMonitor());
+  urls := FBWHandler.GetWallpaperUrl(0, is4kMonitor(), next);
   mem := TMemoryStream.Create;
   try
     for s in urls do
@@ -266,7 +284,7 @@ begin
       filename := FWallPaperFolder + FormatDateTime('YYYY-MM-DD', Now()) + '.jpg';
       mem.SaveToFile(filename);
       setWallpaper(filename);
-      FLastUpdate := Now();
+      NextUpdate := next;
     end;
   finally
     urls.Free;
