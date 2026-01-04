@@ -20,6 +20,7 @@ type
     N2: TMenuItem;
     Openwallpaperfolder1: TMenuItem;
     Region1: TMenuItem;
+    Prefer4K1: TMenuItem;
     procedure Quit1Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -28,6 +29,7 @@ type
     procedure Refresheveryday1Click(Sender: TObject);
     procedure StartwithWindows1Click(Sender: TObject);
     procedure Openwallpaperfolder1Click(Sender: TObject);
+    procedure Prefer4K1Click(Sender: TObject);
   private
     { Private declarations }
     FConfig: TIniFile;
@@ -97,7 +99,7 @@ end;
 
 function TfrmMain.is4kMonitor: Boolean;
 begin
-  Result := (Monitor.Height > 1080) or (Monitor.Width > 1920);
+  Result := Prefer4K1.Checked or (Monitor.Height > 1080) or (Monitor.Width > 1920);
 end;
 
 procedure TfrmMain.onRegionMenuClick(Sender: TObject);
@@ -128,6 +130,12 @@ end;
 procedure TfrmMain.Openwallpaperfolder1Click(Sender: TObject);
 begin
   OpenDirectoryInExplorer(FWallPaperFolder);
+end;
+
+procedure TfrmMain.Prefer4K1Click(Sender: TObject);
+begin
+  Prefer4K1.Checked := not Prefer4K1.Checked;
+  FConfig.WriteBool('general', 'prefer4k', Prefer4K1.Checked);
 end;
 
 procedure TfrmMain.Quit1Click(Sender: TObject);
@@ -235,6 +243,7 @@ begin
   with FConfig do
   begin
     tmr1.Enabled := ReadBool('general', 'refresh', True);
+    Prefer4K1.Checked := ReadBool('general', 'prefer4k', True);
     FBWHandler.Region := ReadString('general', 'region', 'en-US');
     Refresheveryday1.Checked := tmr1.Enabled;
     StartwithWindows1.Checked := IsAutoRunSet('BingWallpaperLite');

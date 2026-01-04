@@ -3409,6 +3409,10 @@ object frmMain: TfrmMain
       Checked = True
       OnClick = StartwithWindows1Click
     end
+    object Prefer4K1: TMenuItem
+      Caption = 'Prefer 4K'
+      OnClick = Prefer4K1Click
+    end
     object N2: TMenuItem
       Caption = '-'
     end
